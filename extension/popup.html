@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Twitter Profile Analyzer Settings</title>
+  <link href="popup.css" rel="stylesheet">
+</head>
+<body>
+  <div class="container">
+    <h2>Settings</h2>
+    
+    <div class="setting-group">
+      <label for="serverUrl">TPRS Server URL:</label>
+      <input type="url" id="serverUrl" placeholder="http://localhost:3000">
+    </div>
+
+    <div class="age-rules">
+      <h3>Account Age Rules</h3>
+      
+      <div class="rule-group">
+        <label>0-6 months</label>
+        <input type="color" id="color-6m" value="#ff0000">
+        <input type="color" id="bg-6m" value="#ffeeee">
+      </div>
+
+      <div class="rule-group">
+        <label>6m-2y</label>
+        <input type="color" id="color-2y" value="#ff69b4">
+        <input type="color" id="bg-2y" value="#fff0f5">
+      </div>
+
+      <div class="rule-group">
+        <label>2y-4y</label>
+        <input type="color" id="color-4y" value="#ffa500">
+        <input type="color" id="bg-4y" value="#fff5e6">
+      </div>
+
+      <div class="rule-group">
+        <label>4y-5y</label>
+        <input type="color" id="color-5y" value="#008000">
+        <input type="color" id="bg-5y" value="#f0fff0">
+      </div>
+
+      <div class="rule-group">
+        <label>5y-10y</label>
+        <input type="color" id="color-10y" value="#0000ff">
+        <input type="color" id="bg-10y" value="#f0f8ff">
+      </div>
+
+      <div class="rule-group">
+        <label>10y+</label>
+        <input type="color" id="color-10plus" value="#4b0082">
+        <input type="color" id="bg-10plus" value="#f5f0ff">
+      </div>
+    </div>
+
+    <button id="save">Save Settings</button>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

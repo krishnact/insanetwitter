@@ -1,0 +1,6 @@
+{
+  "minions": [
+    { "username": "minion1", "password": "password1" },
+    { "username": "minion2", "password": "password2" }
+  ]
+}
