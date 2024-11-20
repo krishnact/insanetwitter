@@ -3,7 +3,23 @@
 This project consists of two main components:
 1. A Chrome extension for analyzing Twitter profiles
 2. A backend server (TPRS) for storing profile data
+3. A minion to fetch profile info
+4. A proxy to serve public requetes.
 
+The proxies contact TPRS for profile info and TPRS works with minions to fetch them. This ensures main TPRS can be hidden behind proxies and not get overloaded. There is a seed file that is published at well know location and the plugin picks a random proxy server from the seed file.
+
+```mermaid
+graph TD
+    A[Chrome Extension] -->|Analyzes Profiles| B[Proxies]
+    B -->|Fetch Profile Info| C[TPRS Backend]
+    C -->|Coordinates with| D[Minions]
+    B -.->|Uses Random Proxy from Seed File| E[Seed File]
+
+    subgraph Backend
+        C
+        D
+    end
+```
 ## Project Structure
 
 ```
@@ -19,6 +35,7 @@ This project consists of two main components:
 └── server/            # Backend server files
     ├── package.json
     └── server.js
+    └── minion.js
 ```
 
 ## Installation
