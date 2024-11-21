@@ -1,0 +1,43 @@
+version: '3.9'
+
+services:
+  server:
+    image: insanetwitter/server:latest
+    container_name: insanetwitter_server
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    ports:
+      - "4012:4012" # Forward server port
+    volumes:
+      - ./db:/app/db  # Mount db folder for server
+      - ./server.config.json:/app/server.config.json # Mount config folder for server
+    environment:
+      - YOUR_ENV_VAR=YOUR_ENV_VAL # Ensure app uses the mounted config path
+
+  minion:
+    image: insanetwitter/minion:latest
+    container_name: insanetwitter_minion
+    build:
+      context: .
+      dockerfile: Dockerfile.minion
+    volumes:
+      - ./minion.config.json:/app/minion.config.json # Mount config folder for server
+    environment:
+      - YOUR_ENV_VAR=YOUR_ENV_VAL # Ensure app uses the mounted config path
+
+        
+  isanetproxy:
+    image: insanetwitter/proxy:latest
+    container_name: insanetwitter_proxy
+    build:
+      context: .
+      dockerfile: Dockerfile.proxy
+    ports:
+      - "4013:4013" # Forward server port
+    volumes:
+      - ./db:/app/db  # Mount db folder for server
+      - ./proxy.config.json:/app/proxy.config.json # Mount config folder for server
+    environment:
+      - YOUR_ENV_VAR=YOUR_ENV_VAL # Ensure app uses the mounted config path
+        
