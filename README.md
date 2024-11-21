@@ -13,7 +13,7 @@ graph TD
     A[Chrome Extension] -->|Analyzes Profiles| B[Proxies]
     B -->|Fetch Profile Info| C[TPRS Backend]
     C -->|Coordinates with| D[Minions]
-    B -.->|Uses Random Proxy from Seed File| E[Seed File]
+    A -.->|Uses Random Proxy from Seed File| E[Seed File]
 
     subgraph Backend
         C
@@ -55,10 +55,18 @@ graph TD
    ```bash
    npm install
    ```
-3. Start the server:
+3. Start the server, it read configuration from server.config.js:
    ```bash
    npm start
    ```
+3. Start the a minion, it read configuration from minion.config.js:
+   ```bash
+   node minion.js
+   ```
+3. Start a proxy, it read configuration from proxy.config.js:
+   ```bash
+   node proxy.sh
+   ```   
 
 ## Configuration
 
@@ -70,7 +78,9 @@ Click the extension icon in Chrome to:
 ## Architecture
 
 - Chrome Extension: Monitors Twitter pages and applies visual changes
-- TPRS Server: Stores profile data and avatar history using SQLite
+- TPRS Server: Stores profile data and displayName history using SQLite
+- Minion: Fetches profile info
+- Proxy: Serves profile info to the content.js page.
 - Settings: Stored in Chrome's sync storage
 
 ## Database Schema
@@ -82,9 +92,9 @@ profiles:
   - joinedDate (TEXT)
   - lastUpdated (TEXT)
 
-avatars:
+displayNameHistory:
   - id (INTEGER PRIMARY KEY)
   - username (TEXT)
-  - url (TEXT)
+  - displayName (TEXT)
   - capturedAt (TEXT)
 ```
