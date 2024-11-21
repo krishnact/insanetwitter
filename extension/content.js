@@ -1,10 +1,38 @@
 let settings = {};
 let observer = null;
 
+async function getRandomURL() {
+  const fileURL = "https://raw.githubusercontent.com/krishnact/insanetwitter/refs/heads/main/extension/seed.json";
+  
+  try {
+    // Fetch the file
+    const response = await fetch(fileURL);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch file: ${response.status} ${response.statusText}`);
+    }
+
+    // Parse the JSON content
+    const data = await response.json();
+
+    // Extract the list of URLs (assuming it's an array in the file)
+    const urls = data.urls; // Replace 'urls' with the actual key in the JSON file that contains the URLs
+    if (!Array.isArray(urls) || urls.length === 0) {
+      throw new Error("No URLs found in the JSON file.");
+    }
+
+    // Return a random URL
+    const randomIndex = Math.floor(Math.random() * urls.length);
+    return urls[randomIndex];
+  } catch (error) {
+    console.error("Error fetching or processing the file:", error.message);
+    return null;
+  }
+}
+
 // Load settings first
 chrome.storage.sync.get().then(stored => {
   settings = stored || {
-    serverUrl: 'http://localhost:3000',
+    serverUrl: 'https://instwitter.monimee.com',
     'color-6m': '#ff0000',
     'bg-6m': '#ffeeee',
     'color-2y': '#ff69b4',
@@ -18,6 +46,10 @@ chrome.storage.sync.get().then(stored => {
     'color-10plus': '#4b0082',
     'bg-10plus': '#f5f0ff'
   };
+  
+  getRandomURL().then(serverUrl =>{
+	  settings.serverUrl = serverUrl;
+  })
   initializeExtension();
 });
 
@@ -70,8 +102,10 @@ async function processNewContent(node) {
   // Check if we're on a profile page
   if (window.location.pathname.match(/\/[^/]+$/) && !window.location.pathname.includes('/status/')) {
     const username = window.location.pathname.slice(1);
-	if (username != 'home' && username != 'explore' && username != 'messages' && username != 'notifications')
-		await sendProfileToServer(username);
+	if (username != 'home' && username != 'explore' && username != 'messages' && username != 'notifications'){
+		// Not used any more
+		// await sendProfileToServer(username);
+	}		
   }
 
   // Process tweets
@@ -170,9 +204,19 @@ async function processTweet(tweetElement) {
 		  addAvatarHistoryButton(usernameElement, profile.displayNameHistory, profile.joinedDate);
 		}
 	  } else {
-		// Apply default styles
-		usernameElement.style.color = 'grey';
-		usernameElement.style.backgroundColor = 'lightgrey';
+		if ( usernameElement.insaneTwitter == true) {
+			
+		}else{
+			// Try again after 10
+			setTimeout(function(){
+				console.log(`Retrying ${username}`)
+				processTweet(tweetElement)
+			}, 10000)
+			// Apply default styles
+			usernameElement.style.color = 'grey';
+			usernameElement.style.backgroundColor = 'lightgrey';
+			usernameElement.insaneTwitter = true
+		}
 	  }
 	} catch (error) {
 	  console.error(`Error processing tweet for ${username}:`, error);
