@@ -21,6 +21,29 @@ chrome.storage.sync.get().then(stored => {
   initializeExtension();
 });
 
+// Listen for messages from the popup
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.action === 'deleteProfileKeys') {
+        deleteProfileKeysFromLocalStorage();
+        sendResponse({ success: true, message: 'Keys deleted!' });
+    }
+});
+
+
+function deleteProfileKeysFromLocalStorage() {
+    // Iterate over the keys in localStorage
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+
+        // Check if the key starts with 'profile_'
+        if (key.startsWith('profile_')) {
+            localStorage.removeItem(key);
+            // Adjust the index because removing an item shifts the remaining keys
+            i--;
+        }
+    }
+}
+
 function initializeExtension() {
   // Create observer for dynamic content
   observer = new MutationObserver(mutations => {
@@ -120,7 +143,10 @@ async function processTweet(tweetElement) {
 		  throw new Error('Server did not return JSON');
 		}
 
-		profile = await response.json();
+		profiles = await response.json();
+		if (profiles.length > 0){
+			profile = profiles[0]
+		}
 
 		// Cache the profile along with expiry (30 days in milliseconds)
 		if (profile && profile.joinedDate){
@@ -140,8 +166,8 @@ async function processTweet(tweetElement) {
 		usernameElement.style.backgroundColor = ageStyle.background;
 
 		// Add avatar history icon if there's history
-		if (profile.avatarHistory && profile.avatarHistory.length > 0) {
-		  addAvatarHistoryButton(usernameElement, profile.avatarHistory, profile.joinedDate);
+		if (profile.displayNameHistory && profile.displayNameHistory.length > 0) {
+		  addAvatarHistoryButton(usernameElement, profile.displayNameHistory, profile.joinedDate);
 		}
 	  } else {
 		// Apply default styles
@@ -173,7 +199,7 @@ function getStyleForAccountAge(joinedDate) {
   }
 }
 
-function addAvatarHistoryButton(usernameElement, avatarHistory, joinedDate) {
+function addAvatarHistoryButton(usernameElement, displayNameHistory, joinedDate) {
   const button = document.createElement('button');
   button.className = 'avatar-history-btn';
   button.innerHTML = '📷';
@@ -182,25 +208,26 @@ function addAvatarHistoryButton(usernameElement, avatarHistory, joinedDate) {
   button.addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();
-    showAvatarHistory(avatarHistory, joinedDate);
+    showAvatarHistory(displayNameHistory, joinedDate);
   });
   
   usernameElement.appendChild(button, joinedDate);
 }
 
-function showAvatarHistory(avatarHistory, joinedDate) {
+function showAvatarHistory(displayNameHistory, joinedDate) {
   const modal = document.createElement('div');
   modal.className = 'avatar-history-modal';
   
   const content = document.createElement('div');
-  content.innerHTML=`<spen>Joined: ${joinedDate}</span>`
+  content.innerHTML=`<span>Joined: ${joinedDate}</span>`
   content.className = 'avatar-history-content';
   
-  avatarHistory.forEach(avatar => {
-    const img = document.createElement('img');
-    img.src = avatar.url;
-    img.title = new Date(avatar.date).toLocaleDateString();
-    content.appendChild(img);
+  displayNameHistory.forEach(displayNameInfo => {
+	  if (displayNameInfo.displayName){
+		  const div = document.createElement('div');
+		  div.innerHTML = `${displayNameInfo.displayName} (${displayNameInfo.capturedAt})`
+		  content.appendChild(div);
+	  }
   });
   
   modal.appendChild(content);

@@ -4,92 +4,116 @@ import Database from 'better-sqlite3';
 import puppeteer from 'puppeteer';
 import { WebSocketServer } from 'ws';
 import fs from 'fs';
-import { scrapeProfile } from './scrapeProfile.js';
 
-const app = express();
-const db = new Database('profiles.db');
-//const WebSocket = require('ws');
 // Load configuration
 const config = JSON.parse(fs.readFileSync('server.config.json', 'utf-8'));
 const validMinions = config.minions;
+const validProxies = config.proxies;
+const MAX_TASKS_PER_MINION = config.maxTasksPerMinion || 5;
 
-console.log('Loaded configuration:', JSON.stringify(config, null, 2));
+const app = express();
+const db = new Database('db/profiles.db');
 
 // Initialize database
 db.exec(`
   CREATE TABLE IF NOT EXISTS profiles (
     username TEXT PRIMARY KEY,
-    displayName TEXT,
     joinedDate TEXT,
     lastUpdated TEXT
   );
 
-  CREATE TABLE IF NOT EXISTS avatars (
+  CREATE TABLE IF NOT EXISTS displayNameHistory (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT,
-    url TEXT,
+    displayName TEXT,
     capturedAt TEXT,
     FOREIGN KEY(username) REFERENCES profiles(username)
   );
 `);
 
-console.log('Database initialized with tables.');
+console.log('Database initialized.');
 
 app.use(cors());
 app.use(express.json());
 
-const minions = new Map();
 const taskQueue = [];
+const minions = new Map();
 
-// WebSocket server for minions
+// Helper function: Update or insert profile and display name history
+function storeProfileAndHistory(profile) {
+  console.log(`--->> profile: ${profile}`, profile)
+  const { username, displayName, joinedDate } = profile;
+  console.log(`--->> ${username} ${displayName} ${joinedDate} `)
+  const profileStmt = db.prepare(`
+    INSERT OR REPLACE INTO profiles (username, joinedDate, lastUpdated)
+    VALUES (?, ?, datetime('now'))
+  `);
+  profileStmt.run(username, joinedDate);
+
+  if (displayName) {
+    const displayNameStmt = db.prepare(`
+      INSERT INTO displayNameHistory (username, displayName, capturedAt)
+      SELECT ?, ?, datetime('now')
+      WHERE NOT EXISTS (
+        SELECT 1 FROM displayNameHistory
+        WHERE username = ? AND displayName = ?
+      )
+    `);
+    displayNameStmt.run(username, displayName, username, displayName);
+  }
+}
+
+// WebSocket server
 const wss = new WebSocketServer({ noServer: true });
 
-wss.on('connection', (ws, request) => {
-  const authHeader = request.headers['authorization'];
-  if (!authHeader || !isValidMinion(authHeader)) {
-    console.error('Unauthorized WebSocket connection attempt.');
-    ws.close(1008, 'Unauthorized');
-    return;
-  }
+function assignTasksToMinions() {
+  for (const [minionId, minion] of minions) {
+    if (minion.tasks.length >= MAX_TASKS_PER_MINION) continue;
 
-  const username = getUsernameFromAuth(authHeader);
-  minions.set(username, ws);
-  console.log(`Minion connected: ${username}`);
-  
-  ws.on('message', (message) => {
-    console.log(`Message received from minion ${username}: ${message}`);
-    const { taskId, result, error } = JSON.parse(message);
+    const availableCapacity = MAX_TASKS_PER_MINION - minion.tasks.length;
+    const tasksToAssign = taskQueue.splice(0, availableCapacity);
 
-    if (error) {
-      console.error(`Error reported by minion ${username}: ${error}`);
-    } else {
-      console.log(`Result received from minion ${username}: ${JSON.stringify(result)}`);
-      if (result) {
-        storeProfile(result);
-      }
+    if (tasksToAssign.length > 0) {
+      tasksToAssign.forEach((task) => {
+		  minion.tasks.push(task)
+		  minion.ws.send(JSON.stringify(task));
+	  }
+	  );
+      
+      console.log(`Assigned ${tasksToAssign.length} tasks to minion ${minionId}`);
     }
-    distributeTasks();
-  });
-
-  ws.on('close', () => {
-    minions.delete(username);
-    console.log(`Minion disconnected: ${username}`);
-  });
-  
-  distributeTasks();
-});
-
-// Middleware to handle HTTP to WebSocket upgrade
-app.use((req, res, next) => {
-  if (req.url === '/ws') {
-    console.log('WebSocket upgrade request received.');
-    wss.handleUpgrade(req, req.socket, req.headers, (ws) => {
-      wss.emit('connection', ws, req);
-    });
-  } else {
-    next();
   }
-});
+}
+
+function enqueueTask(task) {
+  // Check if the task is already in the queue
+  const isAlreadyInQueue = taskQueue.some((queuedTask) => queuedTask.username === task.username);
+
+  // Check if the task is already assigned to a minion
+  const isAssignedToMinion = [...minions.values()].some((minion) =>
+    minion.tasks.some((t) => t.username === task.username)
+  );
+
+  if (!isAlreadyInQueue && !isAssignedToMinion) {
+    taskQueue.push(task);
+    console.log(`Task enqueued: ${JSON.stringify(task)}`);
+    assignTasksToMinions();
+  } else {
+    console.log(`Task for ${task.username} is already in queue or assigned.`);
+  }
+}
+
+function handleMinionDisconnection(minionId) {
+  console.log(`Minion ${minionId} disconnected. Reassigning its tasks.`);
+  const minion = minions.get(minionId);
+
+  if (minion) {
+    taskQueue.push(...minion.tasks); // Requeue uncompleted tasks
+    minions.delete(minionId);
+  }
+
+  assignTasksToMinions();
+}
 
 // Utility: Validate minion using basic auth
 function isValidMinion(authHeader) {
@@ -104,86 +128,82 @@ function isValidMinion(authHeader) {
   return isValid;
 }
 
+function isValidProxy(authHeader) {
+  const base64Credentials = authHeader.split(' ')[1];
+  const [username, password] = Buffer.from(base64Credentials, 'base64').toString('ascii').split(':');
+  const isValid = validProxies.some((proxy) => proxy.username === username && proxy.password === password);
+  if (isValid) {
+    console.log(`Proxy authentication successful for: ${username}`);
+  } else {
+    console.warn(`Proxy authentication failed for: ${username}`);
+  }
+  return isValid;
+}
+
 function getUsernameFromAuth(authHeader) {
   const base64Credentials = authHeader.split(' ')[1];
   const [username] = Buffer.from(base64Credentials, 'base64').toString('ascii').split(':');
   return username;
 }
 
-// Browser initialization
-let browser;
-async function initBrowser() {
-  console.log('Initializing Puppeteer browser...');
-  browser = await puppeteer.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
-  });
-  console.log('Puppeteer browser initialized.');
-}
+wss.on('connection', (ws, request) => {
+  const authHeader = request.headers['authorization'];
+  if (!authHeader || !isValidMinion(authHeader)) {
+    console.error('Unauthorized WebSocket connection attempt.');
+    ws.close(1008, 'Unauthorized');
+    return;
+  }
 
-// Task assignment function
-function distributeTasks() {
-  console.log(`Distributing tasks. Queue size: ${taskQueue.length}, Minions available: ${minions.size}`);
-  while (taskQueue.length > 0 && minions.size > 0) {
-    const task = taskQueue.shift();
-	if (task.username){
-		const minion = [...minions.values()][0]; // Use the first available minion
+  const username = getUsernameFromAuth(authHeader);
+  const minionId = request.headers['sec-websocket-key']; // Use WebSocket key as a unique ID
+  minions.set(minionId, { ws, tasks: [], username: username });
 
-		if (minion) {
-		  console.log(`Assigning task to minion: ${JSON.stringify(task)}`);
-		  minion.send(JSON.stringify(task));
-		} else {
-		  console.warn('No minions available. Requeuing task.');
-		  taskQueue.push(task); // Requeue if no minions are available
-		  break;
-		}		
+  console.log(`Minion connected ${username}, id: ${minionId}`);
+
+  ws.on('message', (message) => {
+    const result = JSON.parse(message);
+    console.log(`Results received from minion ${minionId}:`, result);
+    
+	if (result.error) {
+		console.error(`Error processing ${result.username}: ${result.error}`);
+		enqueueTask({ id: '', username: result.username }); // Retry the failed task
+	} else {
+		storeProfileAndHistory(result.result);
 	}
-  }
-}
 
-// Add tasks to the queue
-function enqueueTask(task) {
-  console.log(`Enqueuing task: ${JSON.stringify(task)}`);
-  taskQueue.push(task);
+    // Remove completed tasks from the minion's task list
+    const minion = minions.get(minionId);
+    if (minion) {
+      minion.tasks = minion.tasks.filter((task) =>
+        task.username === result.username
+      );
+    }
+    console.log(`Minion ${minion.username} has ${minion.tasks.length} tasks`);
+    assignTasksToMinions();
+  });
 
-  distributeTasks();
-}
+  ws.on('close', () => handleMinionDisconnection(minionId));
 
-// Store profile in the database
-function storeProfile(profile) {
-  const { username, displayName, joinedDate, avatarUrl } = profile;
+  ws.on('error', (error) => {
+    console.error(`Error with minion ${minionId}: ${error.message}`);
+    handleMinionDisconnection(minionId);
+  });
 
-  console.log(`Storing profile in database: ${JSON.stringify(profile)}`);
+  assignTasksToMinions();
+});
 
-  const stmt = db.prepare(`
-    INSERT OR REPLACE INTO profiles (username, displayName, joinedDate, lastUpdated)
-    VALUES (?, ?, ?, datetime('now'))
-  `);
-
-  stmt.run(username, displayName, joinedDate);
-
-  if (avatarUrl) {
-    const avatarStmt = db.prepare(`
-      INSERT INTO avatars (username, url, capturedAt)
-      SELECT ?, ?, datetime('now')
-      WHERE NOT EXISTS (
-        SELECT 1 FROM avatars 
-        WHERE username = ? AND url = ?
-      )
-    `);
-
-    avatarStmt.run(username, avatarUrl, username, avatarUrl);
-  }
-
-  console.log(`Profile stored successfully for ${username}`);
-}
-
-// Endpoint to store profile
 app.post('/profile', async (req, res) => {
+	
+  const authHeader = req.headers['authorization'];
+  if (!authHeader || !isValidProxy(authHeader)) {
+    console.error('Unauthorized WebSocket connection attempt.');
+    ws.close(1008, 'Unauthorized');
+    return;
+  }
+  
   const { username } = req.body;
 
   if (!username) {
-    console.warn('Missing username in request.');
     return res.status(400).json({ error: 'Username is required' });
   }
 
@@ -192,46 +212,47 @@ app.post('/profile', async (req, res) => {
   res.json({ success: true });
 });
 
-// Initialize browser and start server
-const PORT = process.env.PORT || 3000;
-initBrowser().then(() => {
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-  });
+app.get('/profile/:username', async (req, res) => {
+  const { username } = req.params;
+
+  if (!username) {
+    return res.status(400).json({ error: 'Username is required' });
+  }
+
+  console.log(`Fetching profile for: ${username}`);
+
+  const profileStmt = db.prepare(`
+    SELECT p.*, GROUP_CONCAT(json_object(
+      'displayName', d.displayName,
+      'capturedAt', d.capturedAt
+    )) AS displayNameHistory
+    FROM profiles p
+    LEFT JOIN displayNameHistory d ON p.username = d.username
+    WHERE p.username = ?
+    GROUP BY p.username
+  `);
+
+  const profile = profileStmt.get(username);
+
+  if (!profile) {
+    enqueueTask({ username });
+    return res.json({ error: 'Profile not found. Task enqueued for processing.', joinedDate: null, username: username  });
+  }
+
+  profile.displayNameHistory = profile.displayNameHistory
+    ? JSON.parse(`[${profile.displayNameHistory}]`)
+    : [];
+
+  res.json(profile);
 });
 
+// Initialize server
+const server = app.listen(config.port || 4000, () => {
+  console.log(`Server running on port ${config.port || 4000}`);
+});
 
-// Endpoint to get profile
-app.get('/profile/:username', (req, res) => {
-  try {
-    const { username } = req.params;
-    
-    if (!username) {
-      return res.status(400).json({ error: 'Username is required' });
-    }
-    console.log(`Profile fetch request for ${username}`)
-    const profile = db.prepare(`
-      SELECT p.*, GROUP_CONCAT(json_object(
-        'url', a.url,
-        'date', a.capturedAt
-      )) as avatarHistory
-      FROM profiles p
-      LEFT JOIN avatars a ON p.username = a.username
-      WHERE p.username = ?
-      GROUP BY p.username
-    `).get(username);
-
-    if (!profile) {
-		enqueueTask({ username });
-        return res.json({ joinedDate: null });
-    }
-
-    // Parse avatar history from string to array
-    profile.avatarHistory = profile.avatarHistory ? JSON.parse(`[${profile.avatarHistory}]`) : [];
-    console.log(`Returning profile of ${username}/${profile.joinedDate}`)
-    res.json(profile);
-  } catch (error) {
-    console.error('Error retrieving profile:', error);
-    res.status(500).json({ error: 'Failed to retrieve profile' });
-  }
+server.on('upgrade', (req, socket, head) => {
+  wss.handleUpgrade(req, socket, head, (ws) => {
+    wss.emit('connection', ws, req);
+  });
 });

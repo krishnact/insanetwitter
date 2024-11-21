@@ -2,5 +2,9 @@
   "minions": [
     { "username": "minion1", "password": "password1" },
     { "username": "minion2", "password": "password2" }
+  ],
+  "proxies": [
+    { "username": "proxy1", "password": "password1" },
+    { "username": "proxy2", "password": "password2" }
   ]
 }

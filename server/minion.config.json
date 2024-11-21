@@ -1,5 +1,5 @@
 {
   "username": "minion1",
   "password": "password1",
-  "serverUrl": "ws://localhost:3000"
+  "serverUrl": "ws://localhost:4000"
 }

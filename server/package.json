@@ -4,11 +4,13 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-	"test": "node test.js",
-	"minion": "node minion.js",
+    "test": "node test.js",
+    "minion": "node minion.js",
+    "proxy": "node proxy.js",
     "dev": "nodemon server.js"
   },
   "dependencies": {
+    "axios": "^1.7.7",
     "better-sqlite3": "^9.4.3",
     "cors": "^2.8.5",
     "express": "^4.18.3",

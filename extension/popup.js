@@ -10,6 +10,31 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById(`bg-${range}`).value = settings[`bg-${range}`] || getDefaultBg(range);
   });
 
+  // popup.js
+
+	document.getElementById('deleteKeysButton').addEventListener('click', async () => {
+		try {
+			// Get the active tab
+			const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+			if (tab?.id) {
+				// Send a message to the content script
+				chrome.tabs.sendMessage(tab.id, { action: 'deleteProfileKeys' }, (response) => {
+					if (response?.success) {
+						alert(response.message);
+					} else {
+						alert('Failed to delete keys.');
+					}
+				});
+			} else {
+				alert('No active tab found!');
+			}
+		} catch (error) {
+			console.error('Error sending message:', error);
+			alert('An error occurred. Check the console for details.');
+		}
+	});
+
   // Save settings
   document.getElementById('save').addEventListener('click', async () => {
     const newSettings = {
@@ -26,6 +51,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 });
 
+function deleteProfileKeysFromLocalStorage() {
+    // Iterate over the keys in localStorage
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+
+        // Check if the key starts with 'profile_'
+        if (key.startsWith('profile_')) {
+            localStorage.removeItem(key);
+            // Adjust the index because removing an item shifts the remaining keys
+            i--;
+        }
+    }
+}
 function getDefaultColor(range) {
   const colors = {
     '6m': '#ff0000',

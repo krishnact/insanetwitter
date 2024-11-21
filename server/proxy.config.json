@@ -1,0 +1,7 @@
+{
+  "username": "proxy1",
+  "password": "password1",
+  "serverUrl": "http://localhost:4000",
+  "maxAgeInDays": 7,
+  "port": 3000
+}
