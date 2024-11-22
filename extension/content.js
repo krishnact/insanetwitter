@@ -1,8 +1,9 @@
 let settings = {};
 let observer = null;
-
+const fileURL = "https://raw.githubusercontent.com/krishnact/insanetwitter/refs/heads/main/extension/seed.json";
+const defaultServerURL = 'https://instwitter.monimee.com'
 async function getRandomURL() {
-  const fileURL = "https://raw.githubusercontent.com/krishnact/insanetwitter/refs/heads/main/extension/seed.json";
+  
   
   try {
     // Fetch the file
@@ -32,7 +33,7 @@ async function getRandomURL() {
 // Load settings first
 chrome.storage.sync.get().then(stored => {
   settings = stored || {
-    serverUrl: 'https://instwitter.monimee.com',
+    serverUrl: defaultServerURL,
     'color-6m': '#ff0000',
     'bg-6m': '#ffeeee',
     'color-2y': '#ff69b4',
@@ -47,9 +48,7 @@ chrome.storage.sync.get().then(stored => {
     'bg-10plus': '#f5f0ff'
   };
   
-  getRandomURL().then(serverUrl =>{
-	  settings.serverUrl = serverUrl;
-  })
+
   initializeExtension();
 });
 
@@ -96,6 +95,12 @@ function initializeExtension() {
 
   // Initial processing
   processNewContent(document.body);
+  if (settings.serverUrl == defaultServerURL){
+	getRandomURL().then(serverUrl =>{
+    settings.serverUrl = serverUrl;
+    })
+  }
+
 }
 
 async function processNewContent(node) {
@@ -211,7 +216,7 @@ async function processTweet(tweetElement) {
 			setTimeout(function(){
 				console.log(`Retrying ${username}`)
 				processTweet(tweetElement)
-			}, 10000)
+			}, 15000)
 			// Apply default styles
 			usernameElement.style.color = 'grey';
 			usernameElement.style.backgroundColor = 'lightgrey';

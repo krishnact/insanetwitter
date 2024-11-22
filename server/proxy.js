@@ -139,8 +139,14 @@ app.get('/profile/:usernames', async (req, res) => {
     let fetchedProfiles ;
     if (missingOrOutdated.length > 0) {
       fetchedProfiles = await fetchProfilesFromServer(missingOrOutdated);
-	  if (fetchedProfiles.joinedDate)
+	  if (fetchedProfiles.joinedDate){
 		  updateLocalDatabase(fetchedProfiles);
+	  }else{
+		  setTimeout(()=>{
+			  fetchProfilesFromServer(missingOrOutdated).then(fetchedProfiles=> updateLocalDatabase(fetchedProfiles))
+		  },10000
+		  )
+	  }
     }
 
     // Combine local profiles and fetched profiles
