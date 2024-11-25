@@ -152,8 +152,9 @@ node index.js
 ```mermaid
 graph TD
     A[Client] -->|REST API| B[Express Server]
-    B -->|Database Queries| C[(SQLite Database)]
+    B -->|Database Queries| C[SQLite Database]
     B -->|Task Management| D[Task Queue]
-    D -->|Assign Tasks| E[Minions (WebSocket)]
+    D -->|Assign Tasks| E[Minions WebSocket]
 ```
+
 
