@@ -1,6 +1,12 @@
 # Twitter Profile Analyzer
 
-This project consists of two main components:
+This tool is designed to enhance your experience on Twitter by addressing the challenges posed by trolls—accounts whose primary goal is to provoke reactions for increased visibility. The tool works by color-coding Twitter handles based on their account age, helping you quickly identify potentially suspicious accounts. Additionally, it captures and retains display names, so if a user changes their display name in the future, you can still view their previous ones.
+
+Once installed, the plugin integrates with your Twitter page, automatically color-coding handles and providing these insights at a glance. While it's possible to manually check when a user joined Twitter by visiting their profile, this tool streamlines the process, offering a more efficient way to identify potential trolls without the need for extra steps.
+
+Looking ahead, I hope Twitter incorporates these features directly into its user interface, eliminating the need for external tools. Another feature I wish Twitter would implement is the ability to track how many accounts share the same IP address, providing insights into whether an IP corresponds to real users or bots.
+
+This project consists these components:
 1. A Chrome extension for analyzing Twitter profiles
 2. A backend server (TPRS) for storing profile data
 3. A minion to fetch profile info

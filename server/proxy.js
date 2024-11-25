@@ -143,6 +143,7 @@ app.get('/profile/:usernames', async (req, res) => {
 		  updateLocalDatabase(fetchedProfiles);
 	  }else{
 		  setTimeout(()=>{
+			  console.log(`Retrying ${usernames}`);
 			  fetchProfilesFromServer(missingOrOutdated).then(fetchedProfiles=> updateLocalDatabase(fetchedProfiles))
 		  },10000
 		  )

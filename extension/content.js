@@ -209,19 +209,9 @@ async function processTweet(tweetElement) {
 		  addAvatarHistoryButton(usernameElement, profile.displayNameHistory, profile.joinedDate);
 		}
 	  } else {
-		if ( usernameElement.insaneTwitter == true) {
-			
-		}else{
-			// Try again after 10
-			setTimeout(function(){
-				console.log(`Retrying ${username}`)
-				processTweet(tweetElement)
-			}, 15000)
-			// Apply default styles
-			usernameElement.style.color = 'grey';
-			usernameElement.style.backgroundColor = 'lightgrey';
-			usernameElement.insaneTwitter = true
-		}
+		// Apply default styles
+		usernameElement.style.color = 'grey';
+		usernameElement.style.backgroundColor = 'lightgrey';
 	  }
 	} catch (error) {
 	  console.error(`Error processing tweet for ${username}:`, error);

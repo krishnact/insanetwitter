@@ -1,7 +1,7 @@
 {
-  "username": "proxy1",
-  "password": "password1",
-  "serverUrl": "http://localhost:4000",
+  "username": "proxy2",
+  "password": "password2",
+  "serverUrl": "http://bhuwan:4012",
   "maxAgeInDays": 7,
   "port": 3000
 }
